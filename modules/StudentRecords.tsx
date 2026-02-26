@@ -1,15 +1,16 @@
 
 import React, { useState, useMemo } from 'react';
-import { Student, AttendanceRecord, ActivityType, Activity, RecordStatus } from '../types';
+import { Student, AttendanceRecord, ActivityCategory, Activity, RecordStatus } from '../types';
 import { LOGOS } from '../constants';
 
 interface StudentRecordsProps {
   records: AttendanceRecord[];
   students: Student[];
   activities: Activity[];
+  categories: ActivityCategory[];
 }
 
-const StudentRecords: React.FC<StudentRecordsProps> = ({ records, students, activities }) => {
+const StudentRecords: React.FC<StudentRecordsProps> = ({ records, students, activities, categories }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
 
@@ -22,15 +23,16 @@ const StudentRecords: React.FC<StudentRecordsProps> = ({ records, students, acti
   }, [students, searchQuery]);
 
   const getAttendanceStats = (studentId: string) => {
-    const stats = {
-      [ActivityType.CLUB]: 0,
-      [ActivityType.UNIFORM]: 0,
-      [ActivityType.SPORT]: 0,
-    };
+    const stats: Record<string, number> = {};
+    categories.forEach(cat => {
+      stats[cat.id] = 0;
+    });
 
     records.filter(r => r.status === RecordStatus.VERIFIED).forEach(record => {
       if (!record.absenteeIds.includes(studentId)) {
-        stats[record.activityType] += 1;
+        if (stats[record.categoryId] !== undefined) {
+          stats[record.categoryId] += 1;
+        }
       }
     });
 
@@ -40,8 +42,11 @@ const StudentRecords: React.FC<StudentRecordsProps> = ({ records, students, acti
   const handlePrintCertificate = (student: Student) => {
     const stats = getAttendanceStats(student.id);
     const target = 12;
-    const totalPresent = stats[ActivityType.CLUB] + stats[ActivityType.UNIFORM] + stats[ActivityType.SPORT];
-    const totalTarget = target * 3;
+    let totalPresent = 0;
+    categories.forEach(cat => {
+      totalPresent += stats[cat.id] || 0;
+    });
+    const totalTarget = target * categories.length;
     const percentage = ((totalPresent / totalTarget) * 100).toFixed(1);
 
     const reportHtml = `
@@ -95,27 +100,15 @@ const StudentRecords: React.FC<StudentRecordsProps> = ({ records, students, acti
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td class="text-center">1</td>
-                <td>${ActivityType.CLUB}</td>
-                <td class="text-center font-bold">${stats[ActivityType.CLUB]}</td>
-                <td class="text-center">${target}</td>
-                <td class="text-center">${((stats[ActivityType.CLUB] / target) * 100).toFixed(1)}%</td>
-              </tr>
-              <tr>
-                <td class="text-center">2</td>
-                <td>${ActivityType.UNIFORM}</td>
-                <td class="text-center font-bold">${stats[ActivityType.UNIFORM]}</td>
-                <td class="text-center">${target}</td>
-                <td class="text-center">${((stats[ActivityType.UNIFORM] / target) * 100).toFixed(1)}%</td>
-              </tr>
-              <tr>
-                <td class="text-center">3</td>
-                <td>${ActivityType.SPORT}</td>
-                <td class="text-center font-bold">${stats[ActivityType.SPORT]}</td>
-                <td class="text-center">${target}</td>
-                <td class="text-center">${((stats[ActivityType.SPORT] / target) * 100).toFixed(1)}%</td>
-              </tr>
+              ${categories.map((cat, idx) => `
+                <tr>
+                  <td class="text-center">${idx + 1}</td>
+                  <td>${cat.name}</td>
+                  <td class="text-center font-bold">${stats[cat.id] || 0}</td>
+                  <td class="text-center">${target}</td>
+                  <td class="text-center">${(((stats[cat.id] || 0) / target) * 100).toFixed(1)}%</td>
+                </tr>
+              `).join('')}
               <tr class="bg-gray font-black">
                 <td colspan="2" class="text-right">JUMLAH KESELURUHAN</td>
                 <td class="text-center">${totalPresent}</td>
@@ -210,9 +203,23 @@ const StudentRecords: React.FC<StudentRecordsProps> = ({ records, students, acti
                   <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center text-2xl backdrop-blur-sm">
                     <i className="fas fa-graduation-cap"></i>
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <h3 className="text-2xl font-black uppercase tracking-tight">{selectedStudent.name}</h3>
-                    <p className="text-indigo-200 font-bold uppercase tracking-widest text-sm">{selectedStudent.class}</p>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                      <p className="text-indigo-200 font-bold uppercase tracking-widest text-xs">
+                        <i className="fas fa-school mr-1"></i> {selectedStudent.class}
+                      </p>
+                      {categories.map(cat => {
+                        const activityId = selectedStudent.assignments?.[cat.id];
+                        if (!activityId) return null;
+                        const activity = activities.find(a => a.id === activityId);
+                        return (
+                          <p key={cat.id} className="text-white/80 font-bold uppercase tracking-widest text-xs">
+                            <i className={`fas ${cat.icon || 'fa-tag'} mr-1`}></i> {activity?.name}
+                          </p>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
                 <button 
@@ -227,28 +234,25 @@ const StudentRecords: React.FC<StudentRecordsProps> = ({ records, students, acti
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[
-                { type: ActivityType.CLUB, icon: 'fa-users', color: 'blue' },
-                { type: ActivityType.UNIFORM, icon: 'fa-shield-alt', color: 'indigo' },
-                { type: ActivityType.SPORT, icon: 'fa-volleyball-ball', color: 'green' },
-              ].map(cat => {
-                const count = getAttendanceStats(selectedStudent.id)[cat.type];
+              {categories.map(cat => {
+                const count = getAttendanceStats(selectedStudent.id)[cat.id] || 0;
                 const target = 12;
                 const percentage = (count / target) * 100;
+                const color = cat.color || 'indigo';
                 
                 return (
-                  <div key={cat.type} className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all">
-                    <div className={`w-12 h-12 bg-${cat.color}-50 text-${cat.color}-600 rounded-2xl flex items-center justify-center text-xl mb-4`}>
-                      <i className={`fas ${cat.icon}`}></i>
+                  <div key={cat.id} className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all">
+                    <div className={`w-12 h-12 bg-${color}-50 text-${color}-600 rounded-2xl flex items-center justify-center text-xl mb-4`}>
+                      <i className={`fas ${cat.icon || 'fa-folder'}`}></i>
                     </div>
-                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{cat.type}</h4>
+                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{cat.name}</h4>
                     <div className="flex items-end justify-between mb-4">
                       <span className="text-3xl font-black text-gray-800">{count}</span>
                       <span className="text-sm font-bold text-gray-400">/ {target} Kali</span>
                     </div>
                     <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden mb-2">
                       <div 
-                        className={`h-full bg-${cat.color}-500 transition-all duration-1000`} 
+                        className={`h-full bg-${color}-500 transition-all duration-1000`} 
                         style={{ width: `${Math.min(percentage, 100)}%` }}
                       ></div>
                     </div>

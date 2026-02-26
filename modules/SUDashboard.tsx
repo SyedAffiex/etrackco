@@ -1,22 +1,23 @@
 
 import React, { useState } from 'react';
-import { AttendanceRecord, Activity, ActivityType, RecordStatus } from '../types';
+import { AttendanceRecord, Activity, ActivityCategory, RecordStatus } from '../types';
 
 interface SUDashboardProps {
   records: AttendanceRecord[];
   activities: Activity[];
+  categories: ActivityCategory[];
   verifyRecord: (id: string) => void;
   deleteRecord: (id: string) => void;
 }
 
-const SUDashboard: React.FC<SUDashboardProps> = ({ records, activities, verifyRecord, deleteRecord }) => {
-  const [filterType, setFilterType] = useState<string>('ALL');
+const SUDashboard: React.FC<SUDashboardProps> = ({ records, activities, categories, verifyRecord, deleteRecord }) => {
+  const [filterCategoryId, setFilterCategoryId] = useState<string>('ALL');
   const [filterDate, setFilterDate] = useState<string>('');
 
   const filtered = records.filter(r => {
-    const matchType = filterType === 'ALL' || r.activityType === filterType;
+    const matchCategory = filterCategoryId === 'ALL' || r.categoryId === filterCategoryId;
     const matchDate = !filterDate || r.date === filterDate;
-    return matchType && matchDate;
+    return matchCategory && matchDate;
   });
 
   const stats = {
@@ -49,14 +50,14 @@ const SUDashboard: React.FC<SUDashboardProps> = ({ records, activities, verifyRe
 
       <div className="flex flex-col md:flex-row gap-4 items-end bg-white p-6 rounded-2xl border border-gray-100 shadow-sm no-print">
         <div className="flex-1">
-          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Tapis Jenis</label>
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Tapis Kategori</label>
           <select 
             className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
+            value={filterCategoryId}
+            onChange={(e) => setFilterCategoryId(e.target.value)}
           >
-            <option value="ALL">Semua Jenis</option>
-            {Object.values(ActivityType).map(t => <option key={t} value={t}>{t}</option>)}
+            <option value="ALL">Semua Kategori</option>
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
         <div className="flex-1">
@@ -69,7 +70,7 @@ const SUDashboard: React.FC<SUDashboardProps> = ({ records, activities, verifyRe
           />
         </div>
         <button 
-          onClick={() => { setFilterType('ALL'); setFilterDate(''); }}
+          onClick={() => { setFilterCategoryId('ALL'); setFilterDate(''); }}
           className="bg-gray-100 text-gray-500 px-6 py-2 rounded-xl text-sm font-bold hover:bg-gray-200"
         >
           Reset

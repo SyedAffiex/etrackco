@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { AppRole, NavPage, AttendanceRecord, Activity, ActivityType, RecordStatus, Student } from './types';
-import { STORAGE_KEYS, DEFAULT_ACTIVITIES, INITIAL_STUDENTS, LOGOS } from './constants';
+import { AppRole, NavPage, AttendanceRecord, Activity, ActivityCategory, RecordStatus, Student } from './types';
+import { STORAGE_KEYS, DEFAULT_ACTIVITIES, DEFAULT_CATEGORIES, INITIAL_STUDENTS, LOGOS } from './constants';
 import Sidebar from './components/Sidebar';
 import GuruDashboard from './modules/GuruDashboard';
 import AttendanceForm from './modules/AttendanceForm';
@@ -20,6 +20,7 @@ const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<NavPage>('RECORD_ATTENDANCE');
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [categories, setCategories] = useState<ActivityCategory[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [editingRecord, setEditingRecord] = useState<AttendanceRecord | null>(null);
 
@@ -29,15 +30,39 @@ const App: React.FC = () => {
     try {
       const savedRecords = localStorage.getItem(STORAGE_KEYS.RECORDS);
       const savedActivities = localStorage.getItem(STORAGE_KEYS.ACTIVITIES);
+      const savedCategories = localStorage.getItem(STORAGE_KEYS.CATEGORIES);
       const savedStudents = localStorage.getItem(STORAGE_KEYS.STUDENTS);
 
       if (savedRecords) setRecords(JSON.parse(savedRecords));
       
       if (savedActivities) {
-        setActivities(JSON.parse(savedActivities));
+        const loadedActivities: Activity[] = JSON.parse(savedActivities);
+        // Migration: Merge missing fields from DEFAULT_ACTIVITIES
+        const migratedActivities = loadedActivities.map(loaded => {
+          const defaultAct = DEFAULT_ACTIVITIES.find(d => d.id === loaded.id);
+          if (defaultAct) {
+            return {
+              ...defaultAct,
+              ...loaded,
+              // Prioritize default values for these specific fields if they are missing in loaded data
+              location: loaded.location || defaultAct.location,
+              advisorHead: loaded.advisorHead || defaultAct.advisorHead,
+              advisors: (loaded.advisors && loaded.advisors.length > 0) ? loaded.advisors : defaultAct.advisors
+            };
+          }
+          return loaded;
+        });
+        setActivities(migratedActivities);
       } else {
         setActivities(DEFAULT_ACTIVITIES);
         localStorage.setItem(STORAGE_KEYS.ACTIVITIES, JSON.stringify(DEFAULT_ACTIVITIES));
+      }
+
+      if (savedCategories) {
+        setCategories(JSON.parse(savedCategories));
+      } else {
+        setCategories(DEFAULT_CATEGORIES);
+        localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(DEFAULT_CATEGORIES));
       }
 
       if (savedStudents) {
@@ -64,6 +89,12 @@ const App: React.FC = () => {
       localStorage.setItem(STORAGE_KEYS.ACTIVITIES, JSON.stringify(activities));
     }
   }, [activities]);
+
+  useEffect(() => {
+    if (categories.length > 0) {
+      localStorage.setItem(STORAGE_KEYS.CATEGORIES, JSON.stringify(categories));
+    }
+  }, [categories]);
 
   const handleRoleSwitch = (newRole: AppRole) => {
     if (newRole === role && !showLogin) return;
@@ -128,6 +159,7 @@ const App: React.FC = () => {
         case 'RECORD_ATTENDANCE':
           return <AttendanceForm 
             activities={activities} 
+            categories={categories}
             students={students} 
             onSubmit={saveRecord} 
             onCancel={() => { setEditingRecord(null); setCurrentPage('VIEW_REPORTS'); }} 
@@ -137,6 +169,7 @@ const App: React.FC = () => {
           return <PastReports 
             records={records} 
             activities={activities} 
+            categories={categories}
             students={students} 
             updateRecord={updateRecord} 
             onEdit={startEdit}
@@ -147,15 +180,15 @@ const App: React.FC = () => {
     } else {
       switch (currentPage) {
         case 'DASHBOARD':
-          return <SUDashboard records={records} activities={activities} verifyRecord={verifyRecord} deleteRecord={deleteRecord} />;
+          return <SUDashboard records={records} activities={activities} categories={categories} verifyRecord={verifyRecord} deleteRecord={deleteRecord} />;
         case 'STUDENT_RECORDS':
-          return <StudentRecords records={records} students={students} activities={activities} />;
+          return <StudentRecords records={records} students={students} activities={activities} categories={categories} />;
         case 'SECRETARY_REPORTS':
-          return <SecretaryReports records={records} activities={activities} students={students} />;
+          return <SecretaryReports records={records} activities={activities} categories={categories} students={students} />;
         case 'MAINTENANCE':
-          return <Maintenance activities={activities} setActivities={setActivities} setStudents={setStudents} />;
+          return <Maintenance activities={activities} setActivities={setActivities} categories={categories} setCategories={setCategories} setStudents={setStudents} />;
         default:
-          return <SUDashboard records={records} activities={activities} verifyRecord={verifyRecord} deleteRecord={deleteRecord} />;
+          return <SUDashboard records={records} activities={activities} categories={categories} verifyRecord={verifyRecord} deleteRecord={deleteRecord} />;
       }
     }
   };

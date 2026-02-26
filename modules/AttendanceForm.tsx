@@ -1,17 +1,18 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Activity, ActivityType, Student, RecordStatus, AttendanceRecord, AdvisorAttendance } from '../types';
+import { Activity, ActivityCategory, Student, RecordStatus, AttendanceRecord, AdvisorAttendance } from '../types';
 
 interface AttendanceFormProps {
   activities: Activity[];
+  categories: ActivityCategory[];
   students: Student[];
   onSubmit: (record: AttendanceRecord) => void;
   onCancel: () => void;
   initialRecord?: AttendanceRecord;
 }
 
-const AttendanceForm: React.FC<AttendanceFormProps> = ({ activities, students, onSubmit, onCancel, initialRecord }) => {
-  const [type, setType] = useState<ActivityType>(initialRecord?.activityType || ActivityType.CLUB);
+const AttendanceForm: React.FC<AttendanceFormProps> = ({ activities, categories, students, onSubmit, onCancel, initialRecord }) => {
+  const [categoryId, setCategoryId] = useState(initialRecord?.categoryId || (categories.length > 0 ? categories[0].id : ''));
   const [activityId, setActivityId] = useState(initialRecord?.activityId || '');
   const [date, setDate] = useState(initialRecord?.date || new Date().toISOString().split('T')[0]);
   const [topic, setTopic] = useState(initialRecord?.topic || '');
@@ -19,21 +20,38 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({ activities, students, o
   const [advisorAttendance, setAdvisorAttendance] = useState<AdvisorAttendance[]>(initialRecord?.advisorAttendance || []);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredActivities = useMemo(() => activities.filter(a => a.type === type), [activities, type]);
+  const filteredActivities = useMemo(() => activities.filter(a => a.categoryId === categoryId), [activities, categoryId]);
   const selectedActivity = useMemo(() => activities.find(a => a.id === activityId), [activities, activityId]);
 
   const filteredStudents = useMemo(() => {
-    return students.filter(s => 
-      s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      s.class.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-  }, [students, searchQuery]);
+    return students.filter(s => {
+      const matchesSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                           s.class.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      if (!activityId) return matchesSearch;
+
+      // Filter by activity assignment
+      const isAssigned = s.assignments?.[categoryId] === activityId;
+
+      return matchesSearch && isAssigned;
+    });
+  }, [students, searchQuery, activityId, categoryId]);
+
+  useEffect(() => {
+    if (categories.length > 0 && !categoryId) {
+      setCategoryId(categories[0].id);
+    }
+  }, [categories, categoryId]);
 
   useEffect(() => {
     if (selectedActivity) {
       const isDifferentFromInitial = initialRecord?.activityId !== activityId;
       if (!initialRecord || isDifferentFromInitial) {
-        const advisors = selectedActivity.advisors || [];
+        let advisors = [...(selectedActivity.advisors || [])];
+        if (selectedActivity.advisorHead && !advisors.includes(selectedActivity.advisorHead)) {
+          advisors = [selectedActivity.advisorHead, ...advisors];
+        }
+        
         const initialAdvisors = advisors.map(name => ({
           name,
           isPresent: true,
@@ -44,7 +62,7 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({ activities, students, o
     } else {
       setAdvisorAttendance([]);
     }
-  }, [selectedActivity, activityId, initialRecord]);
+  }, [selectedActivity, activityId, initialRecord, activities]);
 
   const toggleStudent = (id: string) => {
     setAbsenteeIds(prev => 
@@ -85,7 +103,7 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({ activities, students, o
     const newRecord: AttendanceRecord = {
       id: initialRecord?.id || Math.random().toString(36).substr(2, 9),
       activityId,
-      activityType: type,
+      categoryId,
       date,
       topic: topic.trim(),
       absenteeIds,
@@ -120,13 +138,13 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({ activities, students, o
             <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">1. Pilih Jenis Aktiviti</label>
             <select 
               className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 transition-all outline-none font-bold"
-              value={type}
+              value={categoryId}
               onChange={(e) => {
-                setType(e.target.value as ActivityType);
+                setCategoryId(e.target.value);
                 setActivityId('');
               }}
             >
-              {Object.values(ActivityType).map(t => <option key={t} value={t}>{t}</option>)}
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
@@ -220,6 +238,11 @@ const AttendanceForm: React.FC<AttendanceFormProps> = ({ activities, students, o
                     </div>
                   </div>
                 ))}
+                {(!advisorAttendance || advisorAttendance.length === 0) && (
+                  <div className="p-6 text-center bg-gray-50 rounded-xl border border-dashed border-gray-200">
+                    <p className="text-xs text-gray-400 font-medium italic">Tiada guru penasihat didaftarkan untuk aktiviti ini.</p>
+                  </div>
+                )}
               </div>
             </div>
 

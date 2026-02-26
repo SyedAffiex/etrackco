@@ -1,8 +1,10 @@
 
-export enum ActivityType {
-  UNIFORM = 'Badan Beruniform',
-  CLUB = 'Kelab & Persatuan',
-  SPORT = 'Sukan & Permainan'
+export interface ActivityCategory {
+  id: string;
+  name: string;
+  icon?: string;
+  color?: string;
+  coordinator?: string;
 }
 
 export enum RecordStatus {
@@ -15,6 +17,7 @@ export interface Student {
   id: string;
   name: string;
   class: string;
+  assignments: Record<string, string>; // categoryId -> activityId
 }
 
 export interface AdvisorAttendance {
@@ -26,7 +29,7 @@ export interface AdvisorAttendance {
 export interface Activity {
   id: string;
   name: string;
-  type: ActivityType;
+  categoryId: string;
   advisorHead?: string;
   advisors: string[]; // List of all advisors including head
   location?: string;
@@ -35,7 +38,7 @@ export interface Activity {
 export interface AttendanceRecord {
   id: string;
   activityId: string;
-  activityType: ActivityType;
+  categoryId: string;
   date: string;
   topic: string;
   absenteeIds: string[]; // List of IDs of students who are ABSENT

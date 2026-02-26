@@ -1,16 +1,17 @@
 
 import React, { useState } from 'react';
-import { AttendanceRecord, Activity, ActivityType, Student, RecordStatus } from '../types';
+import { AttendanceRecord, Activity, ActivityCategory, Student, RecordStatus } from '../types';
 
 interface SecretaryReportsProps {
   records: AttendanceRecord[];
   activities: Activity[];
+  categories: ActivityCategory[];
   students: Student[];
 }
 
-const SecretaryReports: React.FC<SecretaryReportsProps> = ({ records, activities, students }) => {
+const SecretaryReports: React.FC<SecretaryReportsProps> = ({ records, activities, categories, students }) => {
   const [filterMonth, setFilterMonth] = useState<string>('ALL');
-  const [filterType, setFilterType] = useState<string>('ALL');
+  const [filterCategoryId, setFilterCategoryId] = useState<string>('ALL');
 
   const months = [
     { value: 'ALL', label: 'Semua Bulan' },
@@ -31,8 +32,8 @@ const SecretaryReports: React.FC<SecretaryReportsProps> = ({ records, activities
   const filtered = records.filter(r => {
     const rDate = new Date(r.date);
     const matchMonth = filterMonth === 'ALL' || rDate.getMonth().toString() === filterMonth;
-    const matchType = filterType === 'ALL' || r.activityType === filterType;
-    return matchMonth && matchType;
+    const matchCategory = filterCategoryId === 'ALL' || r.categoryId === filterCategoryId;
+    return matchMonth && matchCategory;
   });
 
   const handlePrint = () => {
@@ -53,14 +54,14 @@ const SecretaryReports: React.FC<SecretaryReportsProps> = ({ records, activities
           </select>
         </div>
         <div className="flex-1">
-          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Jenis Aktiviti</label>
+          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Kategori Aktiviti</label>
           <select 
             className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
+            value={filterCategoryId}
+            onChange={(e) => setFilterCategoryId(e.target.value)}
           >
-            <option value="ALL">Semua Jenis</option>
-            {Object.values(ActivityType).map(t => <option key={t} value={t}>{t}</option>)}
+            <option value="ALL">Semua Kategori</option>
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
         <button 
@@ -78,7 +79,7 @@ const SecretaryReports: React.FC<SecretaryReportsProps> = ({ records, activities
           <h2 className="text-lg font-bold uppercase">SMK Zainab 2, Kota Bharu</h2>
           <p className="text-sm mt-2">
             Pelaporan: {filterMonth === 'ALL' ? 'Sepanjang Tahun' : months.find(m => m.value === filterMonth)?.label} 
-            {filterType !== 'ALL' ? ` (${filterType})` : ''}
+            {filterCategoryId !== 'ALL' ? ` (${categories.find(c => c.id === filterCategoryId)?.name})` : ''}
           </p>
         </div>
 
@@ -96,6 +97,10 @@ const SecretaryReports: React.FC<SecretaryReportsProps> = ({ records, activities
           <tbody>
             {filtered.map((r, i) => {
               const activity = activities.find(a => a.id === r.activityId);
+              // Count students assigned to this specific activity
+              const assignedStudents = students.filter(s => s.assignments?.[r.categoryId] === r.activityId);
+              const totalAssigned = assignedStudents.length || students.length; // Fallback to all if none assigned (legacy)
+              
               return (
                 <tr key={r.id}>
                   <td className="border border-gray-300 p-2">{i + 1}</td>
@@ -105,7 +110,7 @@ const SecretaryReports: React.FC<SecretaryReportsProps> = ({ records, activities
                     <span className="font-bold">{activity?.name}</span><br/>
                     <span className="text-xs italic">{r.topic}</span>
                   </td>
-                  <td className="border border-gray-300 p-2 text-center">{students.length - r.absenteeIds.length} / {students.length}</td>
+                  <td className="border border-gray-300 p-2 text-center">{totalAssigned - r.absenteeIds.length} / {totalAssigned}</td>
                   <td className="border border-gray-300 p-2 text-center text-xs font-bold uppercase">{r.status}</td>
                 </tr>
               );

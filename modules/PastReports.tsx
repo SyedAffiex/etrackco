@@ -1,18 +1,19 @@
 
 import React, { useState, useMemo } from 'react';
-import { AttendanceRecord, Activity, ActivityType, Student, RecordStatus } from '../types';
+import { AttendanceRecord, Activity, ActivityCategory, Student, RecordStatus } from '../types';
 import { LOGOS } from '../constants';
 
 interface PastReportsProps {
   records: AttendanceRecord[];
   activities: Activity[];
+  categories: ActivityCategory[];
   students: Student[];
   updateRecord?: (id: string, data: Partial<AttendanceRecord>) => void;
   onEdit?: (record: AttendanceRecord) => void;
 }
 
-const PastReports: React.FC<PastReportsProps> = ({ records, activities, students, updateRecord, onEdit }) => {
-  const [filterType, setFilterType] = useState<string>('ALL');
+const PastReports: React.FC<PastReportsProps> = ({ records, activities, categories, students, updateRecord, onEdit }) => {
+  const [filterCategoryId, setFilterCategoryId] = useState<string>('ALL');
   const [filterWeek, setFilterWeek] = useState<string>('ALL');
   const [filterActivityId, setFilterActivityId] = useState<string>('ALL');
   const [filterAdvisor, setFilterAdvisor] = useState<string>('ALL');
@@ -42,7 +43,7 @@ const PastReports: React.FC<PastReportsProps> = ({ records, activities, students
   }, [activities]);
 
   const filtered = records.filter(r => {
-    const matchType = filterType === 'ALL' || r.activityType === filterType;
+    const matchCategory = filterCategoryId === 'ALL' || r.categoryId === filterCategoryId;
     const matchActivity = filterActivityId === 'ALL' || r.activityId === filterActivityId;
     const matchAdvisor = filterAdvisor === 'ALL' || r.advisorHead === filterAdvisor;
     
@@ -53,7 +54,7 @@ const PastReports: React.FC<PastReportsProps> = ({ records, activities, students
         matchWeek = r.date >= week.startStr && r.date <= week.endStr;
       }
     }
-    return matchType && matchWeek && matchActivity && matchAdvisor;
+    return matchCategory && matchWeek && matchActivity && matchAdvisor;
   });
 
   const handleDownloadReport = () => {
@@ -65,6 +66,7 @@ const PastReports: React.FC<PastReportsProps> = ({ records, activities, students
     
     const activity = activities.find(a => a.id === selectedRecord.activityId);
     const activityName = activity?.name || 'Aktiviti';
+    const categoryName = categories.find(c => c.id === selectedRecord.categoryId)?.name || 'N/A';
     
     const reportHtml = `
       <!DOCTYPE html>
@@ -109,7 +111,7 @@ const PastReports: React.FC<PastReportsProps> = ({ records, activities, students
               <p class="text-[10px] font-bold uppercase text-gray-500">Tajuk Perjumpaan:</p>
               <p class="text-lg font-black">${selectedRecord.topic}</p>
               <p class="text-[10px] font-bold uppercase mt-2 text-gray-500">Kategori:</p>
-              <p class="font-bold uppercase">${selectedRecord.activityType}</p>
+              <p class="font-bold uppercase">${categoryName}</p>
             </div>
           </div>
 
@@ -236,7 +238,8 @@ const PastReports: React.FC<PastReportsProps> = ({ records, activities, students
             <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 text-right">
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Tarikh & Status</p>
               <p className="text-sm font-bold text-gray-800">{new Date(selectedRecord.date).toLocaleDateString('ms-MY', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-              <p className="text-xs font-black text-blue-600 mt-2">STATUS: {selectedRecord.status.toUpperCase()}</p>
+              <p className="text-xs font-black text-blue-600 mt-2">KATEGORI: {categories.find(c => c.id === selectedRecord.categoryId)?.name.toUpperCase()}</p>
+              <p className="text-xs font-black text-blue-600 mt-1">STATUS: {selectedRecord.status.toUpperCase()}</p>
             </div>
           </div>
 
@@ -312,17 +315,17 @@ const PastReports: React.FC<PastReportsProps> = ({ records, activities, students
       <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm no-print">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
           <div>
-            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 ml-1">Jenis Aktiviti</label>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 ml-1">Kategori Aktiviti</label>
             <select 
               className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-              value={filterType}
+              value={filterCategoryId}
               onChange={(e) => {
-                setFilterType(e.target.value);
+                setFilterCategoryId(e.target.value);
                 setFilterActivityId('ALL');
               }}
             >
-              <option value="ALL">Semua Jenis</option>
-              {Object.values(ActivityType).map(t => <option key={t} value={t}>{t}</option>)}
+              <option value="ALL">Semua Kategori</option>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
           <div>
@@ -334,7 +337,7 @@ const PastReports: React.FC<PastReportsProps> = ({ records, activities, students
             >
               <option value="ALL">Semua Aktiviti</option>
               {activities
-                .filter(a => filterType === 'ALL' || a.type === filterType)
+                .filter(a => filterCategoryId === 'ALL' || a.categoryId === filterCategoryId)
                 .map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </div>
@@ -378,7 +381,7 @@ const PastReports: React.FC<PastReportsProps> = ({ records, activities, students
               <div className="p-7">
                 <div className="flex justify-between items-start mb-5">
                   <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg uppercase tracking-wider">
-                    {record.activityType}
+                    {categories.find(c => c.id === record.categoryId)?.name || 'N/A'}
                   </span>
                   <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg uppercase tracking-wider ${
                     record.status === RecordStatus.VERIFIED ? 'bg-green-100 text-green-700' :
