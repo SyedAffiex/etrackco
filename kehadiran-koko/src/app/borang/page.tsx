@@ -10,9 +10,8 @@ interface Aktiviti {
 }
 
 export default function BorangKehadiran() {
-  // State sedia ada
   const [senaraiAktiviti, setSenaraiAktiviti] = useState<Aktiviti[]>([])
-  const [jenisKo, setJenisKo] = useState('') // Tambah state untuk jenis
+  const [jenisKo, setJenisKo] = useState('')
   const [aktivitiDipilih, setAktivitiDipilih] = useState('')
   const [lokasi, setLokasi] = useState('')
   const [ketuaGuru, setKetuaGuru] = useState('')
@@ -22,9 +21,9 @@ export default function BorangKehadiran() {
   useEffect(() => {
     async function fetchData() {
       const { data } = await supabase.from('senarai_aktiviti').select('*')
+      console.log("Data dari Supabase:", data); // 🔍 Semak di sini
       if (data) setSenaraiAktiviti(data)
     }
-    fetchData()
   }, [])
 
   useEffect(() => {
@@ -32,13 +31,21 @@ export default function BorangKehadiran() {
     if (dataAktiviti) {
       setLokasi(dataAktiviti.lokasi)
       setKetuaGuru(dataAktiviti.ketua_guru)
+    } else {
+      setLokasi('')
+      setKetuaGuru('')
     }
   }, [aktivitiDipilih, senaraiAktiviti])
 
-  // Fungsi untuk simpan data ke Supabase 💾
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault() // Mencegah halaman daripada 'refresh'
+  const isBorangLengkap = 
+    jenisKo !== '' && 
+    aktivitiDipilih !== '' && 
+    tarikh !== '' && 
+    minggu !== '';
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
     const dataKehadiran = {
       jenis_aktiviti: jenisKo,
       nama_aktiviti: aktivitiDipilih,
@@ -46,7 +53,6 @@ export default function BorangKehadiran() {
       ketua_guru: ketuaGuru,
       tarikh: tarikh,
       minggu: minggu,
-      // senarai_pelajar: ... (akan ditambah kemudian)
     }
 
     const { error } = await supabase.from('kehadiran_aktiviti').insert([dataKehadiran])
@@ -54,16 +60,18 @@ export default function BorangKehadiran() {
     if (error) {
       alert("Gagal menyimpan: " + error.message)
     } else {
-      alert("Data berjaya disimpan! 🎉")
+      alert("Kehadiran telah dihantar untuk pengesahan S/U Ko")
+      setJenisKo('')
+      setAktivitiDipilih('')
+      setTarikh('')
+      setMinggu('')
     }
   }
 
   return (
     <div className="p-8 max-w-2xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">Borang Kehadiran Kokurikulum 🏆</h1>
-      
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Input Jenis Ko */}
         <div>
           <label className="block font-medium">Jenis Aktiviti</label>
           <select value={jenisKo} onChange={(e) => setJenisKo(e.target.value)} className="w-full p-2 border rounded">
@@ -73,8 +81,6 @@ export default function BorangKehadiran() {
             <option value="Sukan">Sukan & Permainan</option>
           </select>
         </div>
-
-        {/* Input Aktiviti */}
         <div>
           <label className="block font-medium">Nama Aktiviti</label>
           <select value={aktivitiDipilih} onChange={(e) => setAktivitiDipilih(e.target.value)} className="w-full p-2 border rounded">
@@ -82,20 +88,19 @@ export default function BorangKehadiran() {
             {senaraiAktiviti.map((item) => <option key={item.id} value={item.nama}>{item.nama}</option>)}
           </select>
         </div>
-
-        {/* Input Lokasi & Guru */}
         <div className="grid grid-cols-2 gap-4">
           <input type="text" placeholder="Lokasi" value={lokasi} readOnly className="p-2 border bg-gray-100 rounded" />
           <input type="text" placeholder="Ketua Guru" value={ketuaGuru} readOnly className="p-2 border bg-gray-100 rounded" />
         </div>
-
-        {/* Input Tarikh & Minggu */}
         <div className="grid grid-cols-2 gap-4">
           <input type="date" value={tarikh} onChange={(e) => setTarikh(e.target.value)} className="p-2 border rounded" />
           <input type="number" placeholder="Minggu Ke-" value={minggu} onChange={(e) => setMinggu(e.target.value)} className="p-2 border rounded" />
         </div>
-
-        <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+        <button 
+          type="submit" 
+          disabled={!isBorangLengkap}
+          className={`px-4 py-2 rounded text-white ${isBorangLengkap ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400 cursor-not-allowed'}`}
+        >
           Simpan Kehadiran
         </button>
       </form>
